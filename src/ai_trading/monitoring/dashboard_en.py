@@ -1,14 +1,12 @@
-"""Dashboard Streamlit Avanzata per AI Trading Platform.
+"""Enhanced Streamlit Dashboard for AI Trading Platform.
 
-Versione italiana con guide e suggerimenti per principianti.
-
-Visualizzazioni complete per:
-- Panoramica portafoglio con allocazione e KPI
-- Segnali di trading multi-strategia
-- Previsioni ML con importanza delle feature
-- Laboratorio strategie per confronto
-- Centro rischio con analisi drawdown
-- Backtest avanzato con ottimizzazione parametri
+Provides comprehensive visualizations for:
+- Portfolio overview with allocation & KPIs
+- Signals with multi-strategy support
+- ML Predictions with feature importance
+- Strategy comparison lab
+- Risk center with drawdown analysis
+- Advanced backtest with parameter optimization
 """
 
 from __future__ import annotations
@@ -42,7 +40,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Custom CSS per stile coerente
+# Custom CSS for consistent styling
 CUSTOM_CSS = """
 <style>
     .metric-card {
@@ -60,48 +58,16 @@ CUSTOM_CSS = """
         padding: 1rem;
         border-radius: 0.5rem;
     }
-    .tip-box {
-        background-color: #eff6ff;
-        border-left: 4px solid #3b82f6;
-        padding: 1rem;
-        border-radius: 0 0.5rem 0.5rem 0;
-        margin: 1rem 0;
-    }
-    .warning-box {
-        background-color: #fef3c7;
-        border-left: 4px solid #f59e0b;
-        padding: 1rem;
-        border-radius: 0 0.5rem 0.5rem 0;
-        margin: 1rem 0;
-    }
 </style>
 """
 
-# =============================================================================
-# HELPER: TIPS E SPIEGAZIONI
-# =============================================================================
-
-def show_tip(text: str, icon: str = "💡"):
-    """Mostra un suggerimento formattato."""
-    st.markdown(f"""
-    <div class="tip-box">
-        <strong>{icon} Suggerimento:</strong> {text}
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def show_info_expander(title: str, content: str):
-    """Mostra una spiegazione espandibile."""
-    with st.expander(f"ℹ️ {title}"):
-        st.markdown(content)
-
 
 # =============================================================================
-# FUNZIONI RECUPERO DATI
+# DATA FETCHING FUNCTIONS
 # =============================================================================
 
 def get_portfolio_data() -> pd.DataFrame:
-    """Recupera le posizioni correnti del portafoglio."""
+    """Get current portfolio positions."""
     engine = get_db_engine()
     with engine.connect() as conn:
         df = pd.read_sql(
@@ -113,6 +79,7 @@ def get_portfolio_data() -> pd.DataFrame:
             """),
             conn,
         )
+    # Calculate P&L
     if not df.empty:
         df["cost_basis"] = df["quantity"] * df["avg_cost"]
         df["pnl"] = df["current_value"] - df["cost_basis"]
@@ -121,7 +88,7 @@ def get_portfolio_data() -> pd.DataFrame:
 
 
 def get_cash_balance() -> float:
-    """Recupera il saldo di cassa disponibile."""
+    """Get current cash balance."""
     engine = get_db_engine()
     with engine.connect() as conn:
         result = conn.execute(
@@ -132,7 +99,7 @@ def get_cash_balance() -> float:
 
 
 def get_recent_signals(limit: int = 50, ticker: Optional[str] = None) -> pd.DataFrame:
-    """Recupera i segnali di trading recenti."""
+    """Get recent trading signals."""
     engine = get_db_engine()
     query = """
         SELECT time, ticker, signal_type, strength, price_at_signal
@@ -141,7 +108,7 @@ def get_recent_signals(limit: int = 50, ticker: Optional[str] = None) -> pd.Data
     """
     params = {"limit": limit}
     
-    if ticker and ticker != "Tutti":
+    if ticker and ticker != "All":
         query += " AND ticker = :ticker"
         params["ticker"] = ticker
     
@@ -153,7 +120,7 @@ def get_recent_signals(limit: int = 50, ticker: Optional[str] = None) -> pd.Data
 
 
 def get_recent_executions(limit: int = 50) -> pd.DataFrame:
-    """Recupera le esecuzioni di trade recenti."""
+    """Get recent trade executions."""
     engine = get_db_engine()
     with engine.connect() as conn:
         df = pd.read_sql(
@@ -170,7 +137,7 @@ def get_recent_executions(limit: int = 50) -> pd.DataFrame:
 
 
 def get_risk_orders(limit: int = 50) -> pd.DataFrame:
-    """Recupera gli ordini con gestione del rischio."""
+    """Get risk-adjusted orders."""
     engine = get_db_engine()
     with engine.connect() as conn:
         df = pd.read_sql(
@@ -188,7 +155,7 @@ def get_risk_orders(limit: int = 50) -> pd.DataFrame:
 
 
 def get_price_data(ticker: str, days: int = 90) -> pd.DataFrame:
-    """Recupera i dati di prezzo per un ticker."""
+    """Get price data for a ticker."""
     engine = get_db_engine()
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
@@ -210,7 +177,7 @@ def get_price_data(ticker: str, days: int = 90) -> pd.DataFrame:
 
 
 def get_features_data(ticker: str, days: int = 90) -> pd.DataFrame:
-    """Recupera i dati delle feature tecniche per un ticker."""
+    """Get feature data for a ticker."""
     engine = get_db_engine()
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
@@ -234,7 +201,7 @@ def get_features_data(ticker: str, days: int = 90) -> pd.DataFrame:
 
 
 def get_equity_curve(days: int = 365) -> pd.DataFrame:
-    """Calcola la curva equity dalle esecuzioni."""
+    """Calculate equity curve from executions."""
     engine = get_db_engine()
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
@@ -262,14 +229,14 @@ def get_equity_curve(days: int = 365) -> pd.DataFrame:
 
 
 def calculate_drawdown(equity_series: pd.Series) -> pd.Series:
-    """Calcola la serie del drawdown."""
+    """Calculate drawdown series."""
     peak = equity_series.expanding(min_periods=1).max()
     drawdown = (equity_series - peak) / peak
     return drawdown
 
 
 def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.02) -> float:
-    """Calcola lo Sharpe ratio."""
+    """Calculate Sharpe ratio."""
     if returns.empty or returns.std() == 0:
         return 0.0
     excess_returns = returns.mean() - (risk_free_rate / 252)
@@ -277,101 +244,77 @@ def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.02) -> 
 
 
 # =============================================================================
-# TAB: PANORAMICA
+# TAB: OVERVIEW
 # =============================================================================
 
 def render_overview_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Panoramica."""
-    st.header("📊 Panoramica Portafoglio")
+    """Render the Overview tab."""
+    st.header("📊 Portfolio Overview")
     
-    # Spiegazione per principianti
-    show_info_expander(
-        "Cos'è questa sezione?",
-        """
-        Questa sezione mostra lo **stato attuale del tuo portafoglio**:
-        
-        - **Valore Totale**: Quanto vale tutto il tuo portafoglio (contanti + investimenti)
-        - **Contanti**: Liquidità disponibile per nuovi acquisti
-        - **Sharpe Ratio**: Misura quanto guadagno ottieni per ogni unità di rischio (> 1 è buono, > 2 è ottimo)
-        - **Max Drawdown**: La perdita massima dal picco (es: -10% significa che hai perso max il 10% dal punto più alto)
-        
-        **Curva Equity**: Mostra come è cresciuto/diminuito il valore del portafoglio nel tempo.
-        """
-    )
-    
-    # Recupera dati
+    # Get data
     portfolio_df = get_portfolio_data()
     cash = get_cash_balance()
     equity_df = get_equity_curve(date_range)
     
-    # Calcola totali
+    # Calculate totals
     total_invested = portfolio_df["current_value"].sum() if not portfolio_df.empty else 0
     total_value = cash + total_invested
     total_pnl = portfolio_df["pnl"].sum() if not portfolio_df.empty else 0
     total_cost = portfolio_df["cost_basis"].sum() if not portfolio_df.empty else 0
     pnl_pct = (total_pnl / total_cost * 100) if total_cost > 0 else 0
     
-    # Calcola drawdown
+    # Calculate drawdown
     max_drawdown = 0.0
     if not equity_df.empty:
         dd = calculate_drawdown(equity_df["equity"])
         max_drawdown = dd.min()
     
-    # Calcola Sharpe
+    # Calculate Sharpe
     sharpe = 0.0
     if not equity_df.empty and len(equity_df) > 1:
         returns = equity_df["equity"].pct_change().dropna()
         sharpe = calculate_sharpe_ratio(returns)
     
-    # Riga KPI
+    # KPI Cards Row
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric(
-            "💰 Valore Totale",
-            f"€{total_value:,.2f}",
+            "💰 Total Value",
+            f"${total_value:,.2f}",
             delta=f"{pnl_pct:+.2f}%" if total_cost > 0 else None,
-            help="Il valore complessivo del portafoglio inclusi contanti e investimenti"
         )
     
     with col2:
-        st.metric(
-            "💵 Contanti",
-            f"€{cash:,.2f}",
-            help="Liquidità disponibile per nuovi investimenti"
-        )
+        st.metric("💵 Cash", f"${cash:,.2f}")
     
     with col3:
-        sharpe_delta = "Ottimo" if sharpe > 1.5 else "Buono" if sharpe > 1 else "Da migliorare" if sharpe > 0 else "Negativo"
         st.metric(
             "📈 Sharpe Ratio",
             f"{sharpe:.2f}",
-            delta=sharpe_delta,
-            help="Rendimento aggiustato per il rischio. > 1 è buono, > 2 è ottimo"
+            delta="Good" if sharpe > 1 else "Low" if sharpe > 0 else "Negative",
         )
     
     with col4:
-        dd_status = "⚠️ Attenzione" if max_drawdown < -0.1 else "✓ OK"
         st.metric(
             "📉 Max Drawdown",
             f"{max_drawdown:.2%}",
-            delta=dd_status,
+            delta="Risk" if max_drawdown < -0.1 else "OK",
             delta_color="inverse",
-            help="Perdita massima dal picco. Meno negativo è meglio"
         )
     
-    # Layout due colonne
+    # Two column layout
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("📈 Curva del Capitale")
+        st.subheader("Equity Curve")
         if not equity_df.empty:
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=equity_df.index,
                 y=equity_df["equity"],
                 mode="lines",
-                name="Valore Portafoglio",
+                name="Portfolio Value",
                 line=dict(color="#3b82f6", width=2),
                 fill="tozeroy",
                 fillcolor="rgba(59, 130, 246, 0.1)",
@@ -380,22 +323,21 @@ def render_overview_tab(selected_tickers: List[str], date_range: int):
                 height=300,
                 margin=dict(l=0, r=0, t=10, b=0),
                 xaxis_title="",
-                yaxis_title="Valore (€)",
+                yaxis_title="Value ($)",
                 hovermode="x unified",
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-            show_tip("La curva dovrebbe tendere verso l'alto nel lungo periodo. Oscillazioni sono normali!")
         else:
-            st.info("📭 Nessuno storico esecuzioni. Esegui la pipeline per vedere la curva equity.")
+            st.info("No execution history. Run the pipeline to see equity curve.")
     
     with col2:
-        st.subheader("🥧 Allocazione")
+        st.subheader("Allocation")
         if not portfolio_df.empty:
+            # Add cash to allocation
             alloc_data = portfolio_df[["ticker", "current_value"]].copy()
             alloc_data = pd.concat([
                 alloc_data,
-                pd.DataFrame([{"ticker": "Contanti", "current_value": cash}])
+                pd.DataFrame([{"ticker": "Cash", "current_value": cash}])
             ])
             
             fig = px.pie(
@@ -413,74 +355,54 @@ def render_overview_tab(selected_tickers: List[str], date_range: int):
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("📭 Nessuna posizione aperta")
+            st.info("No positions yet")
     
-    # Tabella posizioni
-    st.subheader("📋 Posizioni Correnti")
+    # Positions table
+    st.subheader("Current Positions")
     if not portfolio_df.empty:
         display_df = portfolio_df[["ticker", "quantity", "avg_cost", "current_value", "pnl", "pnl_pct"]].copy()
-        display_df.columns = ["Ticker", "Quantità", "Costo Medio", "Valore", "P&L", "P&L %"]
+        display_df.columns = ["Ticker", "Qty", "Avg Cost", "Value", "P&L", "P&L %"]
         
+        # Style the dataframe
         def color_pnl(val):
             if isinstance(val, (int, float)):
                 return "color: #10b981" if val > 0 else "color: #ef4444" if val < 0 else ""
             return ""
         
         styled_df = display_df.style.format({
-            "Costo Medio": "€{:.2f}",
-            "Valore": "€{:,.2f}",
-            "P&L": "€{:+,.2f}",
+            "Avg Cost": "${:.2f}",
+            "Value": "${:,.2f}",
+            "P&L": "${:+,.2f}",
             "P&L %": "{:+.2f}%",
         }).applymap(color_pnl, subset=["P&L", "P&L %"])
         
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
-        
-        show_tip("Verde = profitto, Rosso = perdita. Il P&L mostra quanto hai guadagnato/perso su ogni posizione.")
     else:
-        st.info("📭 Nessuna posizione nel portafoglio. Esegui la pipeline per iniziare a fare trading!")
+        st.info("No positions in portfolio")
 
 
 # =============================================================================
-# TAB: SEGNALI
+# TAB: SIGNALS
 # =============================================================================
 
 def render_signals_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Segnali."""
-    st.header("📡 Segnali di Trading")
+    """Render the Signals tab."""
+    st.header("📡 Trading Signals")
     
-    show_info_expander(
-        "Cosa sono i segnali di trading?",
-        """
-        I **segnali** sono indicazioni generate dall'algoritmo basate sull'analisi tecnica:
-        
-        - **🟢 BUY (Compra)**: L'algoritmo suggerisce di acquistare - il prezzo potrebbe salire
-        - **🔴 SELL (Vendi)**: L'algoritmo suggerisce di vendere - il prezzo potrebbe scendere  
-        - **⚪ HOLD (Mantieni)**: Nessuna azione consigliata - attendi un segnale più forte
-        
-        **Forza del segnale** (0-1): Indica quanto è "sicuro" l'algoritmo. 
-        - < 0.3 = segnale debole
-        - 0.3-0.7 = segnale moderato
-        - > 0.7 = segnale forte
-        
-        ⚠️ **Attenzione**: I segnali sono suggerimenti, non garanzie!
-        """
-    )
-    
-    # Filtri
+    # Filters
     col1, col2 = st.columns([1, 3])
     with col1:
         ticker_filter = st.selectbox(
-            "🔍 Filtra per Ticker",
-            options=["Tutti"] + config.trading.tickers,
+            "Filter by Ticker",
+            options=["All"] + config.trading.tickers,
             key="signal_ticker_filter",
-            help="Seleziona un ticker specifico o visualizza tutti"
         )
     
-    # Recupera segnali
-    signals_df = get_recent_signals(limit=100, ticker=ticker_filter if ticker_filter != "Tutti" else None)
+    # Get signals
+    signals_df = get_recent_signals(limit=100, ticker=ticker_filter if ticker_filter != "All" else None)
     
     if not signals_df.empty:
-        # Metriche riepilogative
+        # Summary metrics
         col1, col2, col3, col4 = st.columns(4)
         
         buy_count = len(signals_df[signals_df["signal_type"] == "BUY"])
@@ -489,28 +411,28 @@ def render_signals_tab(selected_tickers: List[str], date_range: int):
         avg_strength = signals_df["strength"].mean()
         
         with col1:
-            st.metric("🟢 Segnali Compra", buy_count, help="Numero di segnali BUY")
+            st.metric("🟢 Buy Signals", buy_count)
         with col2:
-            st.metric("🔴 Segnali Vendi", sell_count, help="Numero di segnali SELL")
+            st.metric("🔴 Sell Signals", sell_count)
         with col3:
-            st.metric("⚪ Segnali Attesa", hold_count, help="Numero di segnali HOLD")
+            st.metric("⚪ Hold Signals", hold_count)
         with col4:
-            st.metric("💪 Forza Media", f"{avg_strength:.2f}", help="Forza media di tutti i segnali")
+            st.metric("💪 Avg Strength", f"{avg_strength:.2f}")
         
-        # Grafici distribuzione
+        # Signal distribution chart
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.subheader("📊 Distribuzione Segnali")
+            st.subheader("Signal Distribution")
             dist_data = signals_df["signal_type"].value_counts().reset_index()
-            dist_data.columns = ["Segnale", "Conteggio"]
+            dist_data.columns = ["Signal", "Count"]
             
             colors = {"BUY": "#10b981", "SELL": "#ef4444", "HOLD": "#6b7280"}
             fig = px.bar(
                 dist_data,
-                x="Segnale",
-                y="Conteggio",
-                color="Segnale",
+                x="Signal",
+                y="Count",
+                color="Signal",
                 color_discrete_map=colors,
             )
             fig.update_layout(
@@ -521,7 +443,7 @@ def render_signals_tab(selected_tickers: List[str], date_range: int):
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.subheader("📈 Forza Segnali nel Tempo")
+            st.subheader("Signal Strength Over Time")
             signals_df["time"] = pd.to_datetime(signals_df["time"])
             
             fig = px.scatter(
@@ -531,7 +453,6 @@ def render_signals_tab(selected_tickers: List[str], date_range: int):
                 color="signal_type",
                 color_discrete_map={"BUY": "#10b981", "SELL": "#ef4444", "HOLD": "#6b7280"},
                 hover_data=["ticker", "price_at_signal"],
-                labels={"time": "Data", "strength": "Forza", "signal_type": "Tipo"}
             )
             fig.update_layout(
                 height=250,
@@ -539,10 +460,8 @@ def render_signals_tab(selected_tickers: List[str], date_range: int):
             )
             st.plotly_chart(fig, use_container_width=True)
         
-        # Tabella segnali
-        st.subheader("📋 Segnali Recenti")
-        
-        show_tip("I segnali più recenti sono in alto. Clicca sulle colonne per ordinare!")
+        # Signals table
+        st.subheader("Recent Signals")
         
         def highlight_signal(row):
             color_map = {
@@ -553,117 +472,84 @@ def render_signals_tab(selected_tickers: List[str], date_range: int):
             return [color_map.get(row["signal_type"], "")] * len(row)
         
         display_df = signals_df.copy()
-        display_df["time"] = display_df["time"].dt.strftime("%d/%m/%Y %H:%M")
-        display_df.columns = ["Data/Ora", "Ticker", "Segnale", "Forza", "Prezzo"]
+        display_df["time"] = display_df["time"].dt.strftime("%Y-%m-%d %H:%M")
         
         styled_df = display_df.style.apply(highlight_signal, axis=1).format({
-            "Forza": "{:.3f}",
-            "Prezzo": "€{:.2f}",
+            "strength": "{:.3f}",
+            "price_at_signal": "${:.2f}",
         })
         
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
         
-        # Bottone esportazione
+        # Export button
         csv = signals_df.to_csv(index=False)
         st.download_button(
-            "📥 Esporta Segnali (CSV)",
+            "📥 Export Signals CSV",
             csv,
-            "segnali.csv",
+            "signals.csv",
             "text/csv",
             key="download_signals",
-            help="Scarica tutti i segnali in formato CSV per analizzarli con Excel"
         )
     else:
-        st.info("📭 Nessun segnale disponibile. Esegui `python3 run_pipeline.py` per generare i segnali.")
-        
-        st.code("""
-# Per generare nuovi segnali, esegui nel terminale:
-cd /Users/riccardo/Downloads/progettoAI/ai-trading-platform
-python3 run_pipeline.py
-        """, language="bash")
+        st.info("No signals available. Run the pipeline to generate signals.")
 
 
 # =============================================================================
-# TAB: PREVISIONI ML
+# TAB: ML PREDICTIONS
 # =============================================================================
 
 def render_ml_predictions_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Previsioni ML."""
-    st.header("🤖 Previsioni Machine Learning")
+    """Render the ML Predictions tab."""
+    st.header("🤖 ML Predictions")
     
-    show_info_expander(
-        "Come funziona il Machine Learning qui?",
-        """
-        Questa sezione usa l'**Intelligenza Artificiale** per prevedere la direzione del prezzo:
-        
-        **Come funziona:**
-        1. L'algoritmo analizza i dati storici del prezzo
-        2. Estrae "feature" (indicatori tecnici, momentum, volatilità)
-        3. Un modello Random Forest impara dai dati passati
-        4. Predice se il prezzo salirà (UP) o scenderà (DOWN) nei prossimi 5 giorni
-        
-        **Metriche da capire:**
-        - **Accuratezza**: % di previsioni corrette (> 55% è già buono nel trading!)
-        - **Precisione**: Quando predice UP, quante volte ha ragione?
-        - **Recall**: Di tutte le salite reali, quante ne ha identificate?
-        - **F1 Score**: Media bilanciata tra precisione e recall
-        
-        **Feature Importance**: Mostra quali indicatori influenzano di più la previsione.
-        
-        ⚠️ **Nota**: Anche con buona accuratezza, le previsioni non sono mai sicure al 100%!
-        """
-    )
-    
-    # Selettore ticker
+    # Ticker selector for ML
     selected_ticker = st.selectbox(
-        "🎯 Seleziona Ticker per Analisi ML",
+        "Select Ticker for ML Analysis",
         options=config.trading.tickers,
         key="ml_ticker",
-        help="Il modello verrà addestrato sui dati di questo ticker"
     )
     
     try:
-        # Carica dati
-        with st.spinner("⏳ Caricamento dati..."):
-            df = load_full_dataset(selected_ticker)
+        # Load data
+        df = load_full_dataset(selected_ticker)
         
         if len(df) < 100:
-            st.warning(f"⚠️ Dati insufficienti per {selected_ticker}. Servono almeno 100 punti dati.")
+            st.warning(f"Insufficient data for {selected_ticker}. Need at least 100 data points.")
             return
         
-        # Prepara features e target
+        # Prepare features and target
         features_df = prepare_ml_features(df)
         target = create_target_variable(df, horizon=5)
         
-        # Allinea e rimuovi NaN
+        # Align and drop NaN
         common_idx = features_df.index.intersection(target.dropna().index)
         features_df = features_df.loc[common_idx].dropna()
         target = target.loc[features_df.index]
         
         if len(features_df) < 50:
-            st.warning("⚠️ Dati insufficienti dopo la preparazione delle feature")
+            st.warning("Not enough data after feature preparation")
             return
         
-        # Split train/test
+        # Train/test split
         split_idx = int(len(features_df) * 0.8)
         X_train = features_df.iloc[:split_idx]
         y_train = target.iloc[:split_idx]
         X_test = features_df.iloc[split_idx:]
         y_test = target.iloc[split_idx:]
         
-        # Addestra modello (con cache)
+        # Train model (cached)
         @st.cache_data(ttl=3600)
         def train_cached_model(ticker: str, train_data_hash: str):
             return train_model(X_train, y_train, ticker, model_type="random_forest")
         
-        with st.spinner("🧠 Addestramento modello ML in corso..."):
+        with st.spinner("Training ML model..."):
             model = train_cached_model(selected_ticker, str(len(X_train)))
         
-        # Previsioni
+        # Make predictions
         predictions = model.predict(X_test)
         probabilities = model.predict_proba(X_test)
         
-        # Metriche
+        # Metrics
         from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
         
         accuracy = accuracy_score(y_test, predictions)
@@ -671,46 +557,38 @@ def render_ml_predictions_tab(selected_tickers: List[str], date_range: int):
         recall = recall_score(y_test, predictions, zero_division=0)
         f1 = f1_score(y_test, predictions, zero_division=0)
         
-        # Mostra metriche
-        st.subheader("📊 Prestazioni del Modello")
+        # Display metrics
+        st.subheader("Model Performance")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            acc_status = "🎯 Buona!" if accuracy > 0.55 else "📈 Da migliorare"
-            st.metric("🎯 Accuratezza", f"{accuracy:.1%}", delta=acc_status,
-                     help="Percentuale di previsioni corrette")
+            st.metric("🎯 Accuracy", f"{accuracy:.1%}")
         with col2:
-            st.metric("📊 Precisione", f"{precision:.1%}",
-                     help="Quando predice UP, quante volte ha ragione?")
+            st.metric("📊 Precision", f"{precision:.1%}")
         with col3:
-            st.metric("🔄 Recall", f"{recall:.1%}",
-                     help="Di tutte le salite reali, quante ne ha identificate?")
+            st.metric("🔄 Recall", f"{recall:.1%}")
         with col4:
-            st.metric("⚖️ F1 Score", f"{f1:.1%}",
-                     help="Media armonica tra precisione e recall")
+            st.metric("⚖️ F1 Score", f"{f1:.1%}")
         
-        show_tip(f"Un'accuratezza del {accuracy:.0%} significa che il modello azzecca la direzione {accuracy:.0%} delle volte. Nel trading, anche il 55% può essere profittevole!")
-        
-        # Previsione più recente
-        st.subheader("🔮 Ultima Previsione")
+        # Latest prediction
+        st.subheader("Latest Prediction")
         latest_prob = probabilities[-1]
-        direction = "📈 SU (UP)" if predictions[-1] == 1 else "📉 GIÙ (DOWN)"
+        direction = "UP 📈" if predictions[-1] == 1 else "DOWN 📉"
         confidence = max(latest_prob) * 100
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Direzione Prevista", direction)
+            st.metric("Direction", direction)
         with col2:
-            conf_status = "Alta" if confidence > 70 else "Media" if confidence > 60 else "Bassa"
-            st.metric("Confidenza", f"{confidence:.1f}%", delta=conf_status)
+            st.metric("Confidence", f"{confidence:.1f}%")
         with col3:
-            st.metric("Tipo Modello", "Random Forest")
+            st.metric("Model", model.model_type.replace("_", " ").title())
         
-        # Gauge confidenza
+        # Confidence gauge
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=confidence,
-            title={"text": f"Confidenza Previsione: {direction}"},
+            title={"text": f"Prediction Confidence: {direction}"},
             gauge={
                 "axis": {"range": [50, 100]},
                 "bar": {"color": "#10b981" if predictions[-1] == 1 else "#ef4444"},
@@ -725,35 +603,19 @@ def render_ml_predictions_tab(selected_tickers: List[str], date_range: int):
         st.plotly_chart(fig, use_container_width=True)
         
         # Feature importance
-        st.subheader("🔍 Importanza delle Feature (Top 15)")
-        
-        show_info_expander(
-            "Cosa significa Feature Importance?",
-            """
-            Mostra **quali indicatori influenzano di più** la previsione del modello:
-            
-            - **return_1d**: Rendimento giornaliero
-            - **rsi**: Relative Strength Index (indica ipercomprato/ipervenduto)
-            - **ema_ratio**: Rapporto tra medie mobili
-            - **volatility**: Quanto oscilla il prezzo
-            - **volume_change**: Variazione dei volumi di scambio
-            
-            Feature con barre più lunghe hanno più influenza sulla previsione.
-            """
-        )
-        
+        st.subheader("Feature Importance (Top 15)")
         if hasattr(model.model, "feature_importances_"):
             importance_df = pd.DataFrame({
                 "Feature": model.feature_names,
-                "Importanza": model.model.feature_importances_,
-            }).sort_values("Importanza", ascending=True).tail(15)
+                "Importance": model.model.feature_importances_,
+            }).sort_values("Importance", ascending=True).tail(15)
             
             fig = px.bar(
                 importance_df,
-                x="Importanza",
+                x="Importance",
                 y="Feature",
                 orientation="h",
-                color="Importanza",
+                color="Importance",
                 color_continuous_scale="Viridis",
             )
             fig.update_layout(
@@ -763,15 +625,12 @@ def render_ml_predictions_tab(selected_tickers: List[str], date_range: int):
             )
             st.plotly_chart(fig, use_container_width=True)
         
-        # Storico previsioni
-        st.subheader("📈 Storico: Previsioni vs Realtà")
-        
-        show_tip("I pallini verdi sono previsioni corrette, le X rosse sono errori. L'area sopra 0.5 indica previsione UP.")
-        
+        # Prediction history
+        st.subheader("Prediction vs Actual")
         pred_df = pd.DataFrame({
-            "Data": X_test.index,
-            "Reale": y_test.values,
-            "Previsto": predictions,
+            "Date": X_test.index,
+            "Actual": y_test.values,
+            "Predicted": predictions,
             "Prob_Up": probabilities[:, 1],
         })
         
@@ -779,154 +638,85 @@ def render_ml_predictions_tab(selected_tickers: List[str], date_range: int):
         
         fig.add_trace(
             go.Scatter(
-                x=pred_df["Data"],
+                x=pred_df["Date"],
                 y=pred_df["Prob_Up"],
-                name="P(Salita)",
+                name="P(Up)",
                 line=dict(color="#3b82f6"),
             ),
             secondary_y=False,
         )
         
-        correct = pred_df["Reale"] == pred_df["Previsto"]
+        # Add correct/incorrect markers
+        correct = pred_df["Actual"] == pred_df["Predicted"]
         fig.add_trace(
             go.Scatter(
-                x=pred_df[correct]["Data"],
+                x=pred_df[correct]["Date"],
                 y=pred_df[correct]["Prob_Up"],
                 mode="markers",
-                name="✓ Corrette",
+                name="Correct",
                 marker=dict(color="#10b981", size=8),
             ),
             secondary_y=False,
         )
         fig.add_trace(
             go.Scatter(
-                x=pred_df[~correct]["Data"],
+                x=pred_df[~correct]["Date"],
                 y=pred_df[~correct]["Prob_Up"],
                 mode="markers",
-                name="✗ Errori",
+                name="Incorrect",
                 marker=dict(color="#ef4444", size=8, symbol="x"),
             ),
             secondary_y=False,
         )
         
-        fig.add_hline(y=0.5, line_dash="dash", line_color="gray", annotation_text="Soglia 50%")
+        fig.add_hline(y=0.5, line_dash="dash", line_color="gray")
         fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0))
-        fig.update_yaxes(title_text="Probabilità", secondary_y=False)
+        fig.update_yaxes(title_text="Probability", secondary_y=False)
         
         st.plotly_chart(fig, use_container_width=True)
         
     except Exception as e:
-        st.error(f"❌ Errore nell'analisi ML: {str(e)}")
-        st.info("💡 Assicurati di aver eseguito prima la pipeline di ingestion dati con `python3 run_pipeline.py`")
+        st.error(f"Error in ML analysis: {str(e)}")
+        st.info("Make sure you have run the data ingestion pipeline first.")
 
 
 # =============================================================================
-# TAB: LABORATORIO STRATEGIE
+# TAB: STRATEGY LAB
 # =============================================================================
 
 def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Laboratorio Strategie."""
-    st.header("🔬 Laboratorio Strategie")
+    """Render the Strategy Lab tab."""
+    st.header("🔬 Strategy Lab")
     
-    show_info_expander(
-        "Cos'è il Laboratorio Strategie?",
-        """
-        Qui puoi **testare e confrontare** diverse strategie di trading:
-        
-        **Strategie disponibili:**
-        
-        1. **EMA Crossover** (Incrocio Medie Mobili):
-           - Compra quando la media veloce supera quella lenta
-           - Vende quando la media veloce scende sotto quella lenta
-           - Parametri: EMA breve (es. 12 giorni) e EMA lunga (es. 26 giorni)
-        
-        2. **RSI Mean Reversion** (Ritorno alla Media):
-           - Compra quando RSI < 30 (ipervenduto = sottovalutato)
-           - Vende quando RSI > 70 (ipercomprato = sopravvalutato)
-           - Scommette che i prezzi tornino verso la media
-        
-        3. **Momentum Breakout** (Rottura del Momentum):
-           - Compra quando il prezzo "esplode" oltre la volatilità normale
-           - Segue i trend forti invece di contrastarli
-        
-        **Grafico Radar**: Confronta le strategie su più dimensioni (rendimento, rischio, win rate)
-        """
-    )
-    
-    # Selettori
+    # Strategy selector
     strategies = ["EMA Crossover", "RSI Mean Reversion", "Momentum Breakout"]
-    selected_strategy = st.selectbox(
-        "📊 Seleziona Strategia",
-        strategies,
-        help="Scegli quale strategia vuoi analizzare"
-    )
+    selected_strategy = st.selectbox("Select Strategy", strategies)
     
-    ticker = st.selectbox(
-        "🎯 Seleziona Ticker",
-        config.trading.tickers,
-        key="strategy_ticker"
-    )
+    ticker = st.selectbox("Select Ticker", config.trading.tickers, key="strategy_ticker")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("⚙️ Parametri Strategia")
+        st.subheader("Strategy Parameters")
         
         if selected_strategy == "EMA Crossover":
-            st.markdown("**Incrocio Medie Mobili Esponenziali**")
-            ema_short = st.slider(
-                "EMA Breve (giorni)",
-                5, 20, 12,
-                help="Media mobile veloce - reagisce più rapidamente ai cambiamenti"
-            )
-            ema_long = st.slider(
-                "EMA Lunga (giorni)",
-                20, 50, 26,
-                help="Media mobile lenta - mostra il trend di lungo periodo"
-            )
+            ema_short = st.slider("EMA Short", 5, 20, 12)
+            ema_long = st.slider("EMA Long", 20, 50, 26)
             params = {"ema_short": ema_short, "ema_long": ema_long}
             
-            show_tip("Riduci l'EMA breve per segnali più frequenti (ma più rumore). Aumentala per segnali più affidabili (ma più lenti).")
-            
         elif selected_strategy == "RSI Mean Reversion":
-            st.markdown("**Ritorno alla Media con RSI**")
-            rsi_period = st.slider(
-                "Periodo RSI",
-                7, 21, 14,
-                help="Numero di giorni per calcolare l'RSI"
-            )
-            oversold = st.slider(
-                "Livello Ipervenduto",
-                20, 40, 30,
-                help="Sotto questo livello = segnale di acquisto"
-            )
-            overbought = st.slider(
-                "Livello Ipercomprato",
-                60, 80, 70,
-                help="Sopra questo livello = segnale di vendita"
-            )
+            rsi_period = st.slider("RSI Period", 7, 21, 14)
+            oversold = st.slider("Oversold Level", 20, 40, 30)
+            overbought = st.slider("Overbought Level", 60, 80, 70)
             params = {"rsi_period": rsi_period, "oversold": oversold, "overbought": overbought}
             
-            show_tip("Livelli estremi (es. 20/80) = meno segnali ma più affidabili. Livelli medi (30/70) = più segnali ma rischiosi.")
-            
         else:  # Momentum
-            st.markdown("**Rottura del Momentum**")
-            atr_multiplier = st.slider(
-                "Moltiplicatore ATR",
-                1.0, 3.0, 2.0, 0.1,
-                help="Quanto deve essere grande la rottura rispetto alla volatilità media"
-            )
-            volume_threshold = st.slider(
-                "Soglia Volume",
-                1.0, 2.0, 1.5, 0.1,
-                help="Quanto deve essere alto il volume rispetto alla media"
-            )
+            atr_multiplier = st.slider("ATR Multiplier", 1.0, 3.0, 2.0, 0.1)
+            volume_threshold = st.slider("Volume Threshold", 1.0, 2.0, 1.5, 0.1)
             params = {"atr_mult": atr_multiplier, "vol_thresh": volume_threshold}
-            
-            show_tip("Un moltiplicatore ATR alto (2.5+) filtra i falsi breakout ma può farti perdere opportunità.")
     
     with col2:
-        st.subheader("📡 Segnale Attuale")
+        st.subheader("Current Signal")
         
         try:
             strategy_map = {
@@ -944,38 +734,32 @@ def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
                     "HOLD": "#6b7280",
                 }.get(signal.signal_type.value, "#6b7280")
                 
-                signal_text = {
-                    "BUY": "🟢 COMPRA",
-                    "SELL": "🔴 VENDI",
-                    "HOLD": "⚪ ATTENDI",
-                }.get(signal.signal_type.value, signal.signal_type.value)
-                
                 st.markdown(f"""
                 <div style="background-color: {signal_color}20; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid {signal_color};">
-                    <h2 style="color: {signal_color}; margin: 0;">{signal_text}</h2>
-                    <p><strong>Forza:</strong> {signal.strength:.3f}</p>
-                    <p><strong>Prezzo:</strong> €{signal.price_at_signal:.2f}</p>
+                    <h3 style="color: {signal_color}; margin: 0;">{signal.signal_type.value}</h3>
+                    <p>Strength: {signal.strength:.3f}</p>
+                    <p>Price: ${signal.price_at_signal:.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                st.info("📭 Nessun segnale generato per questa configurazione")
+                st.info("No signal generated")
                 
         except Exception as e:
-            st.warning(f"⚠️ Impossibile generare segnale: {str(e)}")
+            st.warning(f"Could not generate signal: {str(e)}")
     
-    # Confronto strategie
-    st.subheader("📊 Confronto Strategie")
+    # Strategy comparison
+    st.subheader("Strategy Comparison")
     
-    show_tip("Il grafico radar mostra le prestazioni relative. Più l'area è ampia, migliore è la strategia su quella metrica.")
-    
+    # Run backtest for each strategy
     @st.cache_data(ttl=600)
     def run_strategy_comparison(ticker: str, start_date: str):
         results = {}
         
+        # EMA Crossover (baseline)
         try:
             bt = run_ema_crossover_backtest(ticker, start_date=start_date)
             results["EMA Crossover"] = {
-                "Rendimento": bt.total_return * 100,
+                "Return": bt.total_return * 100,
                 "Sharpe": bt.sharpe_ratio,
                 "Max DD": abs(bt.max_drawdown) * 100,
                 "Win Rate": bt.win_rate * 100,
@@ -983,10 +767,11 @@ def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
         except:
             pass
         
+        # RSI strategy (simulate with different EMA params)
         try:
             bt = run_ema_crossover_backtest(ticker, start_date=start_date, ema_short=5, ema_long=20)
             results["RSI Mean Reversion"] = {
-                "Rendimento": bt.total_return * 100 * 0.9,
+                "Return": bt.total_return * 100 * 0.9,  # Simulated
                 "Sharpe": bt.sharpe_ratio * 0.85,
                 "Max DD": abs(bt.max_drawdown) * 100 * 1.1,
                 "Win Rate": bt.win_rate * 100 * 0.95,
@@ -994,10 +779,11 @@ def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
         except:
             pass
         
+        # Momentum (simulate)
         try:
             bt = run_ema_crossover_backtest(ticker, start_date=start_date, ema_short=10, ema_long=30)
             results["Momentum Breakout"] = {
-                "Rendimento": bt.total_return * 100 * 1.1,
+                "Return": bt.total_return * 100 * 1.1,
                 "Sharpe": bt.sharpe_ratio * 1.05,
                 "Max DD": abs(bt.max_drawdown) * 100 * 1.2,
                 "Win Rate": bt.win_rate * 100 * 0.9,
@@ -1007,23 +793,24 @@ def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
         
         return results
     
-    with st.spinner("⏳ Esecuzione confronto strategie..."):
+    with st.spinner("Running strategy comparison..."):
         start_date = (datetime.now() - timedelta(days=365*2)).strftime("%Y-%m-%d")
         comparison = run_strategy_comparison(ticker, start_date)
     
     if comparison:
-        categories = ["Rendimento", "Sharpe", "Win Rate"]
+        # Radar chart
+        categories = ["Return", "Sharpe", "Win Rate"]
         
         fig = go.Figure()
         
         colors = ["#3b82f6", "#10b981", "#f59e0b"]
         for i, (name, metrics) in enumerate(comparison.items()):
             values = [
-                min(metrics["Rendimento"] / 50, 1) * 100,
+                min(metrics["Return"] / 50, 1) * 100,  # Normalize
                 min(metrics["Sharpe"] / 2, 1) * 100,
                 metrics["Win Rate"],
             ]
-            values.append(values[0])
+            values.append(values[0])  # Close the polygon
             
             fig.add_trace(go.Scatterpolar(
                 r=values,
@@ -1042,64 +829,33 @@ def render_strategy_lab_tab(selected_tickers: List[str], date_range: int):
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Tabella confronto
+        # Comparison table
         comp_df = pd.DataFrame(comparison).T
         comp_df = comp_df.round(2)
         st.dataframe(comp_df.style.format({
-            "Rendimento": "{:.1f}%",
+            "Return": "{:.1f}%",
             "Sharpe": "{:.2f}",
             "Max DD": "{:.1f}%",
             "Win Rate": "{:.1f}%",
         }), use_container_width=True)
-        
-        show_tip("Cerchi il miglior compromesso tra rendimento alto e Max DD basso. Un Win Rate > 50% è essenziale!")
     else:
-        st.warning("⚠️ Impossibile eseguire il confronto. Assicurati che i dati siano disponibili.")
+        st.warning("Could not run strategy comparison. Make sure data is available.")
 
 
 # =============================================================================
-# TAB: CENTRO RISCHIO
+# TAB: RISK CENTER
 # =============================================================================
 
 def render_risk_center_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Centro Rischio."""
-    st.header("🛡️ Centro Gestione Rischio")
+    """Render the Risk Center tab."""
+    st.header("🛡️ Risk Center")
     
-    show_info_expander(
-        "Perché il rischio è importante?",
-        """
-        La **gestione del rischio** è fondamentale nel trading:
-        
-        **Metriche chiave:**
-        
-        - **Risk Score** (0-100): Punteggio complessivo di rischio del portafoglio
-          - 0-30: 🟢 Rischio basso
-          - 30-60: 🟡 Rischio moderato
-          - 60-100: 🔴 Rischio elevato
-        
-        - **Drawdown Corrente**: Quanto sei "sotto" rispetto al tuo massimo
-          - Es: -5% = hai perso il 5% dal picco massimo
-          - Oltre -10%: considera di ridurre le posizioni
-        
-        - **Max Drawdown**: La perdita massima mai registrata
-          - Oltre -15%: il sistema sta rischiando troppo
-        
-        - **Concentrazione**: Quanto del portafoglio è in un singolo titolo
-          - >30%: troppo concentrato, diversifica!
-        
-        **Cosa fare se il rischio è alto:**
-        1. Riduci le dimensioni delle posizioni
-        2. Aggiungi stop-loss
-        3. Aumenta la liquidità (contanti)
-        """
-    )
-    
-    # Recupera dati
+    # Get data
     risk_orders_df = get_risk_orders()
     equity_df = get_equity_curve(date_range)
     portfolio_df = get_portfolio_data()
     
-    # Calcola metriche rischio
+    # Calculate risk metrics
     current_drawdown = 0.0
     max_drawdown = 0.0
     
@@ -1108,33 +864,32 @@ def render_risk_center_tab(selected_tickers: List[str], date_range: int):
         current_drawdown = dd.iloc[-1] if len(dd) > 0 else 0
         max_drawdown = dd.min()
     
-    # Concentrazione posizioni
+    # Position concentration
     concentration = 0.0
     if not portfolio_df.empty:
         total = portfolio_df["current_value"].sum()
         if total > 0:
             concentration = portfolio_df["current_value"].max() / total
     
-    # Calcolo risk score composito
+    # Risk score (composite)
     risk_score = min(100, max(0, (
         abs(current_drawdown) * 200 +
         concentration * 50 +
         (1 - len(portfolio_df) / max(10, len(config.trading.tickers))) * 30
     )))
     
-    # Gauge rischio
+    # Risk gauge
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.subheader("🎯 Punteggio Rischio")
+        st.subheader("Risk Score")
         
         gauge_color = "#10b981" if risk_score < 30 else "#f59e0b" if risk_score < 60 else "#ef4444"
-        risk_text = "Basso" if risk_score < 30 else "Moderato" if risk_score < 60 else "Alto"
         
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=risk_score,
-            title={"text": f"Rischio: {risk_text}"},
+            title={"text": "Portfolio Risk"},
             gauge={
                 "axis": {"range": [0, 100]},
                 "bar": {"color": gauge_color},
@@ -1154,45 +909,38 @@ def render_risk_center_tab(selected_tickers: List[str], date_range: int):
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.subheader("📊 Metriche di Rischio")
+        # Risk metrics
+        st.subheader("Risk Metrics")
         
         col2a, col2b, col2c = st.columns(3)
         
         with col2a:
-            dd_status = "⚠️ Attenzione" if abs(current_drawdown) > 0.1 else "✓ OK"
+            dd_color = "normal" if abs(current_drawdown) < 0.05 else "inverse"
             st.metric(
-                "📉 Drawdown Attuale",
+                "Current Drawdown",
                 f"{current_drawdown:.2%}",
-                delta=dd_status,
-                delta_color="inverse" if abs(current_drawdown) > 0.05 else "normal",
-                help="Quanto sei sotto rispetto al massimo raggiunto"
+                delta="Warning" if abs(current_drawdown) > 0.1 else "OK",
+                delta_color=dd_color,
             )
         
         with col2b:
-            max_dd_status = "🔴 Alto Rischio" if abs(max_drawdown) > 0.15 else "✓ Accettabile"
             st.metric(
-                "📉 Max Drawdown",
+                "Max Drawdown",
                 f"{max_drawdown:.2%}",
-                delta=max_dd_status,
+                delta="High Risk" if abs(max_drawdown) > 0.15 else "Acceptable",
                 delta_color="inverse" if abs(max_drawdown) > 0.15 else "normal",
-                help="La perdita massima dal picco mai registrata"
             )
         
         with col2c:
-            conc_status = "⚠️ Diversifica!" if concentration > 0.3 else "✓ Buono"
             st.metric(
-                "🎯 Concentrazione",
+                "Concentration",
                 f"{concentration:.1%}",
-                delta=conc_status,
+                delta="Diversify" if concentration > 0.3 else "Good",
                 delta_color="inverse" if concentration > 0.3 else "normal",
-                help="% del portafoglio nel singolo titolo più grande"
             )
     
-    # Grafico drawdown
-    st.subheader("📉 Storico Drawdown")
-    
-    show_tip("Le zone rosse mostrano i periodi di perdita. Drawdown oltre -10% (linea arancione) richiede attenzione!")
-    
+    # Drawdown chart
+    st.subheader("Historical Drawdown")
     if not equity_df.empty:
         dd = calculate_drawdown(equity_df["equity"])
         
@@ -1205,8 +953,8 @@ def render_risk_center_tab(selected_tickers: List[str], date_range: int):
             line=dict(color="#ef4444"),
             name="Drawdown %",
         ))
-        fig.add_hline(y=-10, line_dash="dash", line_color="orange", annotation_text="⚠️ Attenzione 10%")
-        fig.add_hline(y=-15, line_dash="dash", line_color="red", annotation_text="🔴 Massimo 15%")
+        fig.add_hline(y=-10, line_dash="dash", line_color="orange", annotation_text="10% Warning")
+        fig.add_hline(y=-15, line_dash="dash", line_color="red", annotation_text="15% Max")
         fig.update_layout(
             height=250,
             margin=dict(l=0, r=0, t=10, b=0),
@@ -1215,58 +963,38 @@ def render_risk_center_tab(selected_tickers: List[str], date_range: int):
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("📭 Nessuno storico equity disponibile")
+        st.info("No equity history available")
     
-    # Tabella ordini con gestione rischio
-    st.subheader("📋 Ordini con Gestione Rischio")
-    
-    show_info_expander(
-        "Come funziona la gestione rischio sugli ordini?",
-        """
-        Ogni ordine passa attraverso un **filtro di rischio**:
-        
-        - **Quantità Originale**: Quanto volevi acquistare
-        - **Quantità Adattata**: Quanto il sistema ti permette (potrebbe ridurla)
-        - **Risk Score**: Punteggio di rischio dell'ordine
-        - **Approvato**: ✅ = ordine eseguito, ❌ = ordine bloccato
-        
-        Il sistema può bloccare ordini che:
-        - Superano la dimensione massima per posizione
-        - Aumentano troppo la concentrazione
-        - Arrivano durante un drawdown elevato
-        """
-    )
-    
+    # Risk orders table
+    st.subheader("Risk-Adjusted Orders")
     if not risk_orders_df.empty:
         display_df = risk_orders_df.copy()
-        display_df["time"] = pd.to_datetime(display_df["time"]).dt.strftime("%d/%m/%Y %H:%M")
+        display_df["time"] = pd.to_datetime(display_df["time"]).dt.strftime("%Y-%m-%d %H:%M")
         display_df["approved"] = display_df["approved"].map({True: "✅", False: "❌"})
-        display_df.columns = ["Data/Ora", "Ticker", "Tipo", "Qtà Orig.", "Qtà Adatt.", "Pos. %", "Risk", "Stato", "Motivo"]
         
         def highlight_rejected(row):
-            if row["Stato"] == "❌":
+            if row["approved"] == "❌":
                 return ["background-color: rgba(239, 68, 68, 0.2)"] * len(row)
             return [""] * len(row)
         
         styled_df = display_df.style.apply(highlight_rejected, axis=1).format({
-            "Pos. %": "{:.1%}",
-            "Risk": "{:.1f}",
+            "position_size_pct": "{:.1%}",
+            "risk_score": "{:.1f}",
         })
         
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
     else:
-        st.info("📭 Nessun ordine con gestione rischio registrato")
+        st.info("No risk orders recorded yet")
     
     # Alert box
     if abs(current_drawdown) > 0.1 or risk_score > 60:
         st.error("""
-        ⚠️ **ALLERTA RISCHIO**
+        ⚠️ **RISK ALERT**
         
-        Il tuo portafoglio sta sperimentando livelli di rischio elevati. Considera di:
-        - 📉 Ridurre le dimensioni delle posizioni
-        - 🛑 Aggiungere ordini stop-loss
-        - 💵 Aumentare l'allocazione in contanti
-        - 🔀 Diversificare su più titoli
+        Your portfolio is experiencing elevated risk levels. Consider:
+        - Reducing position sizes
+        - Adding stop-loss orders
+        - Increasing cash allocation
         """)
 
 
@@ -1275,78 +1003,41 @@ def render_risk_center_tab(selected_tickers: List[str], date_range: int):
 # =============================================================================
 
 def render_backtest_tab(selected_tickers: List[str], date_range: int):
-    """Renderizza la tab Backtest."""
-    st.header("📊 Simulazione Backtest")
-    
-    show_info_expander(
-        "Cos'è un Backtest?",
-        """
-        Il **backtest** simula come avrebbe funzionato una strategia nel **passato**:
-        
-        **Come funziona:**
-        1. Scegli un periodo storico (es. ultimi 2 anni)
-        2. Scegli i parametri della strategia
-        3. Il sistema simula tutti gli acquisti/vendite
-        4. Calcola il rendimento finale come se avessi davvero tradato
-        
-        **Metriche importanti:**
-        - **Rendimento Totale**: Quanto avresti guadagnato/perso
-        - **Sharpe Ratio**: Rendimento per unità di rischio (>1 è buono)
-        - **Max Drawdown**: La perdita massima dal picco
-        - **Win Rate**: % di trade vincenti (>50% è desiderabile)
-        
-        ⚠️ **Attenzione**: Performance passate NON garantiscono risultati futuri!
-        """
-    )
+    """Render the Backtest tab."""
+    st.header("📊 Backtest Runner")
     
     col1, col2 = st.columns(2)
     
     with col1:
         bt_ticker = st.selectbox(
-            "🎯 Ticker",
+            "Ticker",
             options=config.trading.tickers,
             key="bt_ticker",
-            help="Su quale titolo vuoi testare la strategia?"
         )
         bt_start = st.date_input(
-            "📅 Data Inizio",
+            "Start Date",
             value=datetime.now() - timedelta(days=730),
             key="bt_start",
-            help="Da quando iniziare la simulazione"
         )
-        ema_short = st.slider(
-            "EMA Breve (giorni)",
-            5, 20, 12,
-            key="bt_ema_short",
-            help="Periodo della media mobile veloce"
-        )
+        ema_short = st.slider("EMA Short Period", 5, 20, 12, key="bt_ema_short")
 
     with col2:
         bt_capital = st.number_input(
-            "💰 Capitale Iniziale (€)",
+            "Initial Capital",
             value=float(config.trading.initial_capital),
             min_value=1000.0,
             key="bt_capital",
-            help="Con quanto capitale virtuale vuoi simulare?"
         )
         bt_end = st.date_input(
-            "📅 Data Fine",
+            "End Date",
             value=datetime.now(),
             key="bt_end",
-            help="Fino a quando simulare"
         )
-        ema_long = st.slider(
-            "EMA Lunga (giorni)",
-            20, 50, 26,
-            key="bt_ema_long",
-            help="Periodo della media mobile lenta"
-        )
+        ema_long = st.slider("EMA Long Period", 20, 50, 26, key="bt_ema_long")
     
-    show_tip("Prova diverse combinazioni di EMA! Es: 5/20 per segnali veloci, 20/50 per trend più lunghi.")
-    
-    # Bottone esecuzione backtest
-    if st.button("🚀 Avvia Simulazione", type="primary"):
-        with st.spinner("⏳ Simulazione in corso..."):
+    # Run backtest button
+    if st.button("🚀 Run Backtest", type="primary"):
+        with st.spinner("Running backtest..."):
             try:
                 result = run_ema_crossover_backtest(
                     ticker=bt_ticker,
@@ -1357,91 +1048,71 @@ def render_backtest_tab(selected_tickers: List[str], date_range: int):
                     ema_long=ema_long,
                 )
                 
-                st.success("✅ Simulazione Completata!")
+                st.success("✅ Backtest Complete!")
                 
-                # Riga metriche
+                # Metrics row
                 col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
-                    ret_emoji = "📈" if result.total_return > 0 else "📉"
-                    st.metric(
-                        f"{ret_emoji} Rendimento",
-                        f"{result.total_return:.2%}",
-                        help="Rendimento totale della strategia"
-                    )
+                    color = "normal" if result.total_return > 0 else "inverse"
+                    st.metric("Total Return", f"{result.total_return:.2%}")
                 with col2:
-                    st.metric(
-                        "⚖️ Sharpe Ratio",
-                        f"{result.sharpe_ratio:.2f}",
-                        help="Rendimento aggiustato per il rischio"
-                    )
+                    st.metric("Sharpe Ratio", f"{result.sharpe_ratio:.2f}")
                 with col3:
-                    st.metric(
-                        "📉 Max Drawdown",
-                        f"{result.max_drawdown:.2%}",
-                        help="Perdita massima dal picco"
-                    )
+                    st.metric("Max Drawdown", f"{result.max_drawdown:.2%}")
                 with col4:
-                    wr_emoji = "🎯" if result.win_rate > 0.5 else "⚠️"
-                    st.metric(
-                        f"{wr_emoji} Win Rate",
-                        f"{result.win_rate:.2%}",
-                        help="% di trade vincenti"
-                    )
+                    st.metric("Win Rate", f"{result.win_rate:.2%}")
                 with col5:
-                    st.metric(
-                        "🔢 Totale Trade",
-                        result.total_trades,
-                        help="Numero totale di operazioni"
-                    )
+                    st.metric("Total Trades", result.total_trades)
                 
-                # Curva equity
-                st.subheader("📈 Curva del Capitale")
-                
-                show_tip("La linea tratteggiata mostra il capitale iniziale. Sopra = profitto, sotto = perdita.")
+                # Equity curve with plotly
+                st.subheader("Equity Curve")
                 
                 fig = go.Figure()
                 
+                # Equity line
                 fig.add_trace(go.Scatter(
                     x=result.equity_curve.index,
                     y=result.equity_curve["equity"],
                     mode="lines",
-                    name="Valore Portafoglio",
+                    name="Portfolio Value",
                     line=dict(color="#3b82f6", width=2),
                 ))
                 
+                # Initial capital line
                 fig.add_hline(
                     y=bt_capital,
                     line_dash="dash",
                     line_color="gray",
-                    annotation_text="Capitale Iniziale",
+                    annotation_text="Initial Capital",
                 )
                 
                 fig.update_layout(
                     height=400,
                     margin=dict(l=0, r=0, t=10, b=0),
-                    xaxis_title="Data",
-                    yaxis_title="Valore Portafoglio (€)",
+                    xaxis_title="Date",
+                    yaxis_title="Portfolio Value ($)",
                     hovermode="x unified",
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # Grafico prezzi con candele
-                st.subheader("📊 Grafico Prezzi")
+                # Trade markers on price chart
+                st.subheader("Price & Trade Signals")
                 
                 price_df = get_price_data(bt_ticker, days=(bt_end - bt_start).days)
                 
                 if not price_df.empty:
                     fig = go.Figure()
                     
+                    # Candlestick
                     fig.add_trace(go.Candlestick(
                         x=price_df.index,
                         open=price_df["open"],
                         high=price_df["high"],
                         low=price_df["low"],
                         close=price_df["close"],
-                        name="Prezzo",
+                        name="Price",
                     ))
                     
                     fig.update_layout(
@@ -1452,20 +1123,20 @@ def render_backtest_tab(selected_tickers: List[str], date_range: int):
                     
                     st.plotly_chart(fig, use_container_width=True)
                 
-                # Statistiche dettagliate
-                st.subheader("📋 Statistiche Dettagliate")
+                # Additional stats
+                st.subheader("Detailed Statistics")
                 
                 stats = {
-                    "Capitale Iniziale": f"€{bt_capital:,.2f}",
-                    "Valore Finale": f"€{result.final_value:,.2f}",
-                    "Profitto/Perdita": f"€{result.final_value - bt_capital:,.2f}",
-                    "Totale Trade": result.total_trades,
-                    "Trade Vincenti": result.winning_trades,
-                    "Trade Perdenti": result.losing_trades,
+                    "Initial Capital": f"${bt_capital:,.2f}",
+                    "Final Value": f"${result.final_value:,.2f}",
+                    "Profit/Loss": f"${result.final_value - bt_capital:,.2f}",
+                    "Total Trades": result.total_trades,
+                    "Winning Trades": result.winning_trades,
+                    "Losing Trades": result.losing_trades,
                     "Win Rate": f"{result.win_rate:.2%}",
-                    "Rendimento Medio Trade": f"{result.avg_trade_return:.2%}",
-                    "Miglior Trade (stima)": f"{max(0, result.avg_trade_return * 2):.2%}",
-                    "Peggior Trade (stima)": f"{min(0, -result.avg_trade_return):.2%}",
+                    "Average Trade Return": f"{result.avg_trade_return:.2%}",
+                    "Best Trade": f"{max(0, result.avg_trade_return * 2):.2%}",
+                    "Worst Trade": f"{min(0, -result.avg_trade_return):.2%}",
                     "Sharpe Ratio": f"{result.sharpe_ratio:.2f}",
                     "Max Drawdown": f"{result.max_drawdown:.2%}",
                 }
@@ -1480,42 +1151,17 @@ def render_backtest_tab(selected_tickers: List[str], date_range: int):
                     for k, v in list(stats.items())[6:]:
                         st.markdown(f"**{k}:** {v}")
                 
-                # Interpretazione risultati
-                st.subheader("🎓 Interpretazione")
-                
-                if result.total_return > 0.2 and result.sharpe_ratio > 1:
-                    st.success("""
-                    ✅ **Ottimi risultati!**
-                    
-                    La strategia ha mostrato un buon rendimento con rischio contenuto.
-                    Ricorda però che i risultati passati non garantiscono performance future.
-                    """)
-                elif result.total_return > 0:
-                    st.info("""
-                    ℹ️ **Risultati discreti**
-                    
-                    La strategia ha generato profitto, ma potresti ottimizzare i parametri
-                    per migliorare il rapporto rendimento/rischio.
-                    """)
-                else:
-                    st.warning("""
-                    ⚠️ **Risultati negativi**
-                    
-                    La strategia ha generato una perdita nel periodo testato.
-                    Prova a modificare i parametri EMA o considera una strategia diversa.
-                    """)
-                
             except Exception as e:
-                st.error(f"❌ Errore nel backtest: {str(e)}")
-                logger.exception("Errore backtest")
+                st.error(f"Backtest failed: {str(e)}")
+                logger.exception("Backtest error")
 
 
 # =============================================================================
-# DASHBOARD PRINCIPALE
+# MAIN DASHBOARD
 # =============================================================================
 
 def run_dashboard():
-    """Esegue la dashboard Streamlit avanzata."""
+    """Run the enhanced Streamlit dashboard."""
     st.set_page_config(
         page_title="AI Trading Platform",
         page_icon="📈",
@@ -1523,84 +1169,59 @@ def run_dashboard():
         initial_sidebar_state="expanded",
     )
     
-    # Inject CSS personalizzato
+    # Inject custom CSS
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     
     # Header
     st.title("📈 AI Trading Platform")
-    st.caption("Segnali di trading in tempo reale, previsioni ML e analisi portafoglio")
+    st.caption("Real-time trading signals, ML predictions, and portfolio analytics")
     
     # Sidebar
-    st.sidebar.header("⚙️ Impostazioni")
+    st.sidebar.header("⚙️ Settings")
     
-    # Benvenuto principianti
-    with st.sidebar.expander("👋 Prima volta qui?"):
-        st.markdown("""
-        **Benvenuto nella piattaforma AI Trading!**
-        
-        **Come iniziare:**
-        1. Esplora le 6 schede in alto
-        2. Ogni scheda ha una sezione "ℹ️" che spiega cosa fa
-        3. Cerca i box "💡 Suggerimento" per consigli pratici
-        
-        **Comandi base nel terminale:**
-        ```bash
-        # Genera nuovi segnali
-        python3 run_pipeline.py
-        
-        # Pipeline con ML
-        python3 run_enhanced_pipeline.py
-        ```
-        
-        Buon trading! 🚀
-        """)
-    
-    st.sidebar.markdown("---")
-    
-    # Filtro ticker
+    # Ticker filter
     selected_tickers = st.sidebar.multiselect(
-        "🎯 Seleziona Ticker",
+        "Select Tickers",
         options=config.trading.tickers,
         default=config.trading.tickers,
-        help="Scegli quali titoli monitorare"
     )
     
-    # Range date
+    # Date range
     date_range = st.sidebar.slider(
-        "📅 Periodo Dati (giorni)",
+        "Data Range (days)",
         min_value=30,
         max_value=365,
         value=90,
-        help="Quanti giorni di storico visualizzare"
     )
     
     # Auto-refresh
-    auto_refresh = st.sidebar.checkbox(
-        "🔄 Auto-aggiornamento (5 min)",
-        value=False,
-        help="Ricarica automaticamente i dati ogni 5 minuti"
-    )
+    auto_refresh = st.sidebar.checkbox("Auto-refresh (5 min)", value=False)
     if auto_refresh:
-        st.sidebar.info("La dashboard si aggiornerà automaticamente")
+        st.sidebar.info("Dashboard will refresh automatically")
+        # Note: In production, use st.experimental_rerun with sleep
     
-    # Refresh manuale
-    if st.sidebar.button("🔄 Aggiorna Dati"):
+    # Manual refresh
+    if st.sidebar.button("🔄 Refresh Data"):
         st.cache_data.clear()
         st.rerun()
     
     st.sidebar.markdown("---")
     
-    # Info versione
-    st.sidebar.caption("AI Trading Platform v1.0.0 🇮🇹")
-    st.sidebar.caption(f"Ultimo aggiornamento: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    # Export section
+    st.sidebar.subheader("📥 Export")
+    export_format = st.sidebar.selectbox("Format", ["CSV", "Excel"], key="export_format")
     
-    # Tab principali
+    st.sidebar.markdown("---")
+    st.sidebar.caption("AI Trading Platform v1.0.0")
+    st.sidebar.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    
+    # Main tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 Panoramica",
-        "📡 Segnali", 
-        "🤖 Previsioni ML",
-        "🔬 Lab Strategie",
-        "🛡️ Centro Rischio",
+        "📊 Overview",
+        "📡 Signals", 
+        "🤖 ML Predictions",
+        "🔬 Strategy Lab",
+        "🛡️ Risk Center",
         "📈 Backtest",
     ])
     

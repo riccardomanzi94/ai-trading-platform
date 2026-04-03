@@ -14,6 +14,9 @@ Visualizzazioni complete per:
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
+import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 
@@ -1587,6 +1590,89 @@ def run_dashboard():
     if st.sidebar.button("🔄 Aggiorna Dati"):
         st.cache_data.clear()
         st.rerun()
+    
+    st.sidebar.markdown("---")
+    
+    # === GENERA SEGNALI ===
+    st.sidebar.subheader("🚀 Genera Segnali")
+    
+    pipeline_type = st.sidebar.radio(
+        "Tipo Pipeline",
+        options=["Base", "Avanzata (ML)"],
+        help="Base: solo strategie tecniche. Avanzata: include previsioni ML"
+    )
+    
+    if st.sidebar.button("▶️ Esegui Pipeline", type="primary", use_container_width=True):
+        # Determina la directory del progetto
+        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        
+        script_name = "run_pipeline.py" if pipeline_type == "Base" else "run_enhanced_pipeline.py"
+        script_path = os.path.join(project_dir, script_name)
+        
+        with st.sidebar.status(f"⏳ Esecuzione {script_name}...", expanded=True) as status:
+            try:
+                # Esegui la pipeline
+                result = subprocess.run(
+                    [sys.executable, script_path],
+                    capture_output=True,
+                    text=True,
+                    cwd=project_dir,
+                    timeout=120
+                )
+                
+                if result.returncode == 0:
+                    status.update(label="✅ Pipeline completata!", state="complete")
+                    
+                    # Estrai info dal risultato
+                    output = result.stdout
+                    
+                    # Mostra riepilogo
+                    st.sidebar.success("Segnali generati con successo!")
+                    
+                    # Parsing veloce dell'output
+                    if "Generated" in output or "Generati" in output:
+                        for line in output.split('\n'):
+                            if "signal" in line.lower() or "segnali" in line.lower():
+                                st.sidebar.info(line.strip())
+                                break
+                    
+                    # ML predictions se pipeline avanzata
+                    if pipeline_type == "Avanzata (ML)" and "🤖" in output:
+                        st.sidebar.markdown("**Previsioni ML:**")
+                        for line in output.split('\n'):
+                            if "🤖" in line:
+                                st.sidebar.write(line.strip())
+                    
+                    # Pulisci cache e ricarica
+                    st.cache_data.clear()
+                    st.toast("🎉 Pipeline completata! Ricarica per vedere i nuovi dati.", icon="✅")
+                    
+                else:
+                    status.update(label="❌ Errore nella pipeline", state="error")
+                    st.sidebar.error(f"Errore: {result.stderr[:200]}")
+                    
+            except subprocess.TimeoutExpired:
+                status.update(label="⏰ Timeout", state="error")
+                st.sidebar.warning("La pipeline ha impiegato troppo tempo (>120s)")
+            except Exception as e:
+                status.update(label="❌ Errore", state="error")
+                st.sidebar.error(f"Errore: {str(e)}")
+    
+    # Tip per la pipeline
+    with st.sidebar.expander("💡 Cosa fa la pipeline?"):
+        st.markdown("""
+        **Pipeline Base:**
+        1. Scarica dati di mercato (Yahoo Finance)
+        2. Calcola indicatori tecnici (EMA, RSI, ATR...)
+        3. Genera segnali BUY/SELL/HOLD
+        4. Applica risk management
+        5. Esegue ordini (paper trading)
+        
+        **Pipeline Avanzata:**
+        - Tutto quello della base +
+        - Previsioni ML (RandomForest)
+        - Confidenza delle previsioni
+        """)
     
     st.sidebar.markdown("---")
     

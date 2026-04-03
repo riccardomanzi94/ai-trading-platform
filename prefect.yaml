@@ -1,0 +1,55 @@
+# Prefect deployment configuration
+# https://docs.prefect.io/latest/concepts/deployments/
+
+name: ai-trading-platform
+prefect-version: 2.14.0
+
+# Build section - prepare the flow for deployment
+build: null
+
+# Push section - upload to remote storage (optional)
+push: null
+
+# Pull section - retrieve code at runtime
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /app
+
+# Deployments
+deployments:
+  - name: daily-e2e-pipeline
+    version: "0.1.0"
+    tags:
+      - trading
+      - production
+    description: |
+      Pipeline giornaliera end-to-end per:
+      - Ingestion dati da Yahoo Finance
+      - Calcolo feature tecniche
+      - Generazione segnali
+      - Applicazione risk policy
+      - Paper execution
+    entrypoint: orchestrator/flows/daily_e2e_pipeline.py:daily_pipeline
+    parameters:
+      tickers: null  # Uses default from config if null
+    schedule:
+      cron: "0 18 * * 1-5"  # Weekdays at 6 PM (after market close)
+      timezone: "America/New_York"
+    work_pool:
+      name: default-agent-pool
+      work_queue_name: default
+
+  - name: backtest-runner
+    version: "0.1.0"
+    tags:
+      - trading
+      - backtest
+    description: Run EMA crossover backtest on historical data
+    entrypoint: orchestrator/flows/daily_e2e_pipeline.py:run_backtest_flow
+    parameters:
+      ticker: "SPY"
+      start_date: "2020-01-01"
+      end_date: null
+    work_pool:
+      name: default-agent-pool
+      work_queue_name: default

@@ -11,6 +11,7 @@
 ## 📋 Indice
 
 - [Panoramica](#-panoramica)
+- [Screenshot](#-screenshot)
 - [Caratteristiche](#-caratteristiche)
 - [Quick Start](#-quick-start)
 - [Guida Dashboard](#-guida-dashboard-passo-passo)
@@ -32,6 +33,31 @@ AI Trading Platform è una soluzione completa per il trading algoritmico che com
 - **Dashboard Interattiva** in italiano con tutorial integrati
 
 Perfetta sia per chi inizia sia per trader esperti che vogliono automatizzare le proprie strategie.
+
+---
+
+## 📸 Screenshot
+
+### Dashboard Panoramica
+![Dashboard Overview](docs/images/dashboard_overview.png)
+
+### Segnali di Trading
+![Trading Signals](docs/images/dashboard_signals.png)
+
+### Previsioni ML
+![ML Predictions](docs/images/dashboard_ml_predictions.png)
+
+### Laboratorio Strategie
+![Strategy Lab](docs/images/dashboard_strategy_lab.png)
+
+### Centro Rischio
+![Risk Center](docs/images/dashboard_risk_center.png)
+
+### Backtest
+![Backtest](docs/images/dashboard_backtest.png)
+
+### Sidebar con Controlli
+![Sidebar](docs/images/dashboard_sidebar.png)
 
 ---
 

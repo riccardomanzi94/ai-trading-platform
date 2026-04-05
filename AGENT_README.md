@@ -186,8 +186,8 @@ result = response.json()
 Crea un file `.env` nella root:
 
 ```env
-# Trading
-TICKERS=SPY,QQQ,AAPL,MSFT,GOOGL,TSLA
+# Trading - 25 asset: ETF (Broad, Sector, Bonds, Intl, Commodities) + Azioni
+TICKERS=SPY,QQQ,IWM,VOO,VTI,XLF,XLK,XLE,XLU,XLI,XLP,XLV,XLY,TLT,BND,AGG,LQD,VEA,VWO,GLD,USO,AAPL,MSFT,GOOGL,TSLA
 INITIAL_CAPITAL=100000
 MAX_POSITION_SIZE=0.1
 MAX_PORTFOLIO_RISK=0.02

@@ -252,6 +252,12 @@ La dashboard è pensata per essere intuitiva anche per chi inizia. Ogni sezione 
 Crea un file `.env` nella root del progetto:
 
 ```env
+# Trading - Asset da analizzare (25 asset: ETF + Azioni)
+TICKERS=SPY,QQQ,IWM,VOO,VTI,XLF,XLK,XLE,XLU,XLI,XLP,XLV,XLY,TLT,BND,AGG,LQD,VEA,VWO,GLD,USO,AAPL,MSFT,GOOGL,TSLA
+INITIAL_CAPITAL=100000
+MAX_POSITION_SIZE=0.1
+MAX_PORTFOLIO_RISK=0.02
+
 # Database
 DATABASE_URL=postgresql://postgres:password@localhost:5432/trading
 
@@ -267,6 +273,17 @@ TELEGRAM_CHAT_ID=your_chat_id
 # Notifiche Slack
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 ```
+
+### ETF e Asset Inclusi
+
+| Categoria | ETF | Descrizione |
+|-----------|-----|-------------|
+| **Broad Market** | SPY, VOO, QQQ, VTI, IWM | S&P 500, NASDAQ-100, Totale USA, Russell 2000 |
+| **Settoriali** | XLF, XLK, XLE, XLU, XLI, XLP, XLV, XLY | Finanziari, Tech, Energia, Utilities, Industriali, Consumer Staples, Healthcare, Consumer Discretionary |
+| **Obbligazioni** | TLT, BND, AGG, LQD | Treasury 20+, Bond Market, Aggregate Bond, Corporate IG |
+| **Internazionali** | VEA, VWO | Mercati Sviluppati, Emergenti |
+| **Commodities** | GLD, USO | Oro, Petrolio |
+| **Azioni** | AAPL, MSFT, GOOGL, TSLA | Big Tech + Tesla |
 
 ### Configurare Telegram
 

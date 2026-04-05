@@ -143,13 +143,13 @@ def get_recent_signals(limit: int = 50, ticker: Optional[str] = None) -> pd.Data
         WHERE 1=1
     """
     params = {"limit": limit}
-    
+
     if ticker and ticker != "Tutti":
         query += " AND ticker = :ticker"
         params["ticker"] = ticker
-    
+
     query += " ORDER BY time DESC LIMIT :limit"
-    
+
     with engine.connect() as conn:
         df = pd.read_sql(text(query), conn, params=params)
     return df

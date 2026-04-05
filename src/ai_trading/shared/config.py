@@ -30,7 +30,8 @@ class TradingConfig:
 
     tickers: list[str] = field(
         default_factory=lambda: os.getenv(
-            "TICKERS", "SPY,QQQ,IWM,AAPL,MSFT,GOOGL"
+            "TICKERS",
+            "SPY,QQQ,IWM,VOO,VTI,XLF,XLK,XLE,XLU,XLI,XLP,XLV,XLY,TLT,BND,AGG,LQD,VEA,VWO,GLD,USO,AAPL,MSFT,GOOGL,TSLA"
         ).split(",")
     )
     initial_capital: float = field(

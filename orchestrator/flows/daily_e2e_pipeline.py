@@ -1,11 +1,16 @@
 """Prefect orchestration flows for AI Trading Platform.
 
 Defines the daily end-to-end pipeline:
-1. Data ingestion from Yahoo Finance
-2. Feature computation
-3. Signal generation
-4. Risk management
-5. Paper execution
+1. Data ingestion from Alpaca Markets API (institutional-grade OHLCV)
+2. Feature computation (EMA, RSI, ATR, Volatility)
+3. Signal generation (EMA Crossover, RSI Mean Reversion, Momentum Breakout)
+4. Risk management (position sizing, VaR, drawdown limits)
+5. Paper execution (simulated trades with slippage/commission)
+
+Optional:
+- FRED macroeconomic data ingestion
+- Multi-strategy ensemble signals
+- ML-enhanced predictions
 """
 
 from __future__ import annotations
@@ -32,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 @task(
     name="ingest_market_data",
-    description="Download OHLCV data from Yahoo Finance",
+    description="Download OHLCV data from Alpaca Markets API",
     retries=3,
     retry_delay_seconds=60,
 )

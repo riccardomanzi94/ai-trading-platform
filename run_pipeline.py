@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Run the full AI Trading pipeline."""
+"""Run the full AI Trading pipeline.
+
+Pipeline steps:
+1. Initialize paper trading portfolio
+2. Ingest OHLCV data from Alpaca Markets API
+3. Compute technical features (EMA, RSI, ATR, Volatility)
+4. Generate trading signals (EMA Crossover strategy)
+5. Apply risk management and execute paper trades
+
+Requires:
+- ALPACA_API_KEY and ALPACA_API_SECRET environment variables
+- TimescaleDB running (docker-compose up -d)
+"""
 
 from ai_trading.data_ingestion import ingest_all_tickers
 from ai_trading.feature_store import build_all_features
@@ -16,8 +28,8 @@ print('\n[1/5] Inizializzazione portfolio...')
 initialize_portfolio(100000)
 print('✓ Portfolio inizializzato con $100,000')
 
-# 2. Ingestion dati
-print('\n[2/5] Download dati da Yahoo Finance...')
+# 2. Ingestion dati da Alpaca Markets
+print('\n[2/5] Download dati da Alpaca Markets...')
 ingestion = ingest_all_tickers(start_date='2024-01-01')
 total_rows = sum(ingestion.values())
 print(f'✓ Scaricati {total_rows} righe per {len(ingestion)} ticker')

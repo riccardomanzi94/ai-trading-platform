@@ -24,7 +24,7 @@ deployments:
       - production
     description: |
       Pipeline giornaliera end-to-end per:
-      - Ingestion dati da Yahoo Finance
+      - Ingestion dati da Alpaca Markets API
       - Calcolo feature tecniche
       - Generazione segnali
       - Applicazione risk policy

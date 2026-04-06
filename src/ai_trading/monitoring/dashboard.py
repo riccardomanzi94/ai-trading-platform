@@ -1662,7 +1662,7 @@ def run_dashboard():
     with st.sidebar.expander("💡 Cosa fa la pipeline?"):
         st.markdown("""
         **Pipeline Base:**
-        1. Scarica dati di mercato (Yahoo Finance)
+        1. Scarica dati di mercato (Alpaca Markets)
         2. Calcola indicatori tecnici (EMA, RSI, ATR...)
         3. Genera segnali BUY/SELL/HOLD
         4. Applica risk management

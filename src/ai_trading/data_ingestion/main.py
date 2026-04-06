@@ -1,22 +1,160 @@
-"""Data ingestion from Yahoo Finance.
+"""Data ingestion from Alpaca Markets API.
 
-Downloads OHLCV data for configured tickers and stores in TimescaleDB.
-Uses yfinance with auto_adjust=False to get raw prices including Adj Close.
+Downloads OHLCV data for configured tickers from Alpaca and stores in TimescaleDB.
+Alpaca provides clean, institutional-grade market data with proper adjustments.
+
+Rate limits (Paper Trading):
+- 200 requests per minute for market data
+- Automatic retry with exponential backoff
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
 import pandas as pd
-import yfinance as yf
 from sqlalchemy import text
 
 from ai_trading.shared.config import config, get_db_engine
+from ai_trading.broker.alpaca_broker import AlpacaBroker, AlpacaConfig
 
 logger = logging.getLogger(__name__)
+
+
+class AlpacaDataClient:
+    """Client for Alpaca market data with rate limiting and retries."""
+
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
+        """Initialize Alpaca data client.
+
+        Args:
+            api_key: Alpaca API key (optional, uses env var if not provided)
+            api_secret: Alpaca API secret (optional, uses env var if not provided)
+        """
+        # Use provided keys or let AlpacaConfig read from env vars
+        alpaca_config = AlpacaConfig()
+        if api_key:
+            alpaca_config.api_key = api_key
+        if api_secret:
+            alpaca_config.api_secret = api_secret
+        alpaca_config.paper = True  # Data is same for paper/live
+
+        self.broker = AlpacaBroker(alpaca_config)
+        self._last_request_time = 0
+        self._min_delay = 0.3  # 300ms between requests (200 req/min safe limit)
+
+    def _rate_limit(self):
+        """Apply rate limiting between requests."""
+        elapsed = time.time() - self._last_request_time
+        if elapsed < self._min_delay:
+            time.sleep(self._min_delay - elapsed)
+        self._last_request_time = time.time()
+
+    def fetch_bars(
+        self,
+        ticker: str,
+        start_date: str,
+        end_date: str,
+        timeframe: str = "1Day",
+    ) -> pd.DataFrame:
+        """Fetch OHLCV bars from Alpaca API.
+
+        Args:
+            ticker: Stock/ETF ticker symbol
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            timeframe: Bar timeframe ("1Min", "1Hour", "1Day")
+
+        Returns:
+            DataFrame with columns: time, open, high, low, close, volume, ticker
+        """
+        logger.info(f"Fetching {ticker} from Alpaca: {start_date} to {end_date}")
+
+        # Convert dates to ISO format with timezone
+        start_iso = f"{start_date}T00:00:00Z"
+        end_iso = f"{end_date}T23:59:59Z"
+
+        all_bars = []
+        page_token = None
+        max_pages = 50  # Safety limit
+        page_count = 0
+
+        while page_count < max_pages:
+            self._rate_limit()
+
+            try:
+                # Build request with pagination
+                url = f"{self.broker.config.data_url}/v2/stocks/{ticker}/bars"
+                params = {
+                    "timeframe": timeframe,
+                    "start": start_iso,
+                    "end": end_iso,
+                    "limit": 10000,  # Max per request
+                }
+                if page_token:
+                    params["page_token"] = page_token
+
+                response = self.broker._session.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+
+                bars = data.get("bars", [])
+                if not bars:
+                    break
+
+                all_bars.extend(bars)
+
+                # Check for next page
+                page_token = data.get("next_page_token")
+                if not page_token:
+                    break
+
+                page_count += 1
+                logger.debug(f"Fetched page {page_count} for {ticker}, {len(bars)} bars")
+
+            except Exception as e:
+                logger.error(f"Error fetching {ticker}: {e}")
+                if "429" in str(e):  # Rate limit
+                    logger.warning("Rate limited, waiting 60 seconds...")
+                    time.sleep(60)
+                    continue
+                raise
+
+        if not all_bars:
+            logger.warning(f"No data returned for {ticker}")
+            return pd.DataFrame()
+
+        # Convert to DataFrame
+        df = pd.DataFrame(all_bars)
+
+        # Rename columns to match database schema
+        df = df.rename(columns={
+            "t": "time",
+            "o": "open",
+            "h": "high",
+            "l": "low",
+            "c": "close",
+            "v": "volume",
+        })
+
+        # Parse timestamp
+        df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(None)
+
+        # Add ticker column
+        df["ticker"] = ticker
+
+        # Select required columns (Alpaca doesn't provide adj_close separately)
+        df = df[["time", "ticker", "open", "high", "low", "close", "volume"]]
+
+        # For Alpaca, close prices are already split-adjusted
+        # We'll use close as adj_close for consistency
+        df["adj_close"] = df["close"]
+
+        logger.info(f"Fetched {len(df)} rows for {ticker}")
+        return df
 
 
 def fetch_prices(
@@ -24,7 +162,7 @@ def fetch_prices(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Fetch OHLCV data from Yahoo Finance.
+    """Fetch OHLCV data from Alpaca.
 
     Args:
         ticker: Stock/ETF ticker symbol
@@ -32,41 +170,15 @@ def fetch_prices(
         end_date: End date in YYYY-MM-DD format (default: today)
 
     Returns:
-        DataFrame with columns: Open, High, Low, Close, Adj Close, Volume
+        DataFrame with columns: time, ticker, open, high, low, close, adj_close, volume
     """
     if start_date is None:
         start_date = config.backtest.start_date
     if end_date is None:
         end_date = datetime.now().strftime("%Y-%m-%d")
 
-    logger.info(f"Fetching {ticker} from {start_date} to {end_date}")
-
-    # Use auto_adjust=False to get raw prices with Adj Close column
-    data = yf.download(
-        ticker,
-        start=start_date,
-        end=end_date,
-        auto_adjust=False,
-        progress=False,
-    )
-
-    if data.empty:
-        logger.warning(f"No data returned for {ticker}")
-        return pd.DataFrame()
-
-    # Flatten multi-index columns if present (happens with single ticker)
-    if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
-
-    # Add ticker column
-    data["ticker"] = ticker
-
-    # Reset index to have time as column
-    data = data.reset_index()
-    data = data.rename(columns={"Date": "time"})
-
-    logger.info(f"Fetched {len(data)} rows for {ticker}")
-    return data
+    client = AlpacaDataClient()
+    return client.fetch_bars(ticker, start_date, end_date)
 
 
 def ingest_ticker(
@@ -90,8 +202,7 @@ def ingest_ticker(
         return 0
 
     # Prepare data for insertion
-    df_insert = df[["time", "ticker", "Open", "High", "Low", "Close", "Adj Close", "Volume"]].copy()
-    df_insert.columns = ["time", "ticker", "open", "high", "low", "close", "adj_close", "volume"]
+    df_insert = df[["time", "ticker", "open", "high", "low", "close", "adj_close", "volume"]].copy()
 
     engine = get_db_engine()
 

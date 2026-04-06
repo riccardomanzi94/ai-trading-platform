@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""Enhanced Pipeline using all new features.
+"""Enhanced Pipeline using all platform features.
 
-Demonstrates:
-- Multi-strategy signal generation
-- ML-enhanced predictions
-- Alerts and notifications
-- Optional broker integration
+Pipeline steps:
+1. Data ingestion from Alpaca Markets API
+2. Technical feature computation (EMA, RSI, ATR, Volatility)
+3. Multi-strategy signal generation (EMA Crossover, RSI Mean Reversion, Momentum Breakout)
+4. ML-enhanced predictions (RandomForest, GradientBoosting) - optional
+5. Risk management (position sizing, VaR, drawdown limits)
+6. Paper execution with slippage simulation
+7. Alert notifications (Telegram, Slack, Email) - optional
+8. Live broker integration (Alpaca) - optional
+
+Requires:
+- ALPACA_API_KEY and ALPACA_API_SECRET environment variables
+- TimescaleDB running (docker-compose up -d)
+- Optional: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID for alerts
 """
 
 from __future__ import annotations

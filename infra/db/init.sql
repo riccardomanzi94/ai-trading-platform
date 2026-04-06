@@ -145,3 +145,28 @@ ALTER TABLE prices SET (
 );
 
 SELECT add_compression_policy('prices', INTERVAL '30 days', if_not_exists => TRUE);
+
+-- Macroeconomic data from FRED (Federal Reserve)
+CREATE TABLE IF NOT EXISTS macro_data (
+    time TIMESTAMPTZ NOT NULL,
+    series_id VARCHAR(20) NOT NULL,
+    series_name VARCHAR(100) NOT NULL,
+    value DOUBLE PRECISION NOT NULL,
+    unit VARCHAR(50),
+    frequency VARCHAR(20), -- daily, weekly, monthly, quarterly
+    last_updated TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (time, series_id)
+);
+
+SELECT create_hypertable('macro_data', 'time', if_not_exists => TRUE);
+CREATE INDEX IF NOT EXISTS idx_macro_series ON macro_data (series_id, time DESC);
+
+-- Common FRED series for reference
+-- DFF: Effective Federal Funds Rate (daily)
+-- DGS10: 10-Year Treasury Constant Maturity Rate (daily)
+-- DGS2: 2-Year Treasury Constant Maturity Rate (daily)
+-- T10Y2Y: 10-Year minus 2-Year Treasury spread (daily)
+-- CPIAUCSL: Consumer Price Index (monthly)
+-- UNRATE: Unemployment Rate (monthly)
+-- GDP: Gross Domestic Product (quarterly)
+-- VIXCLS: CBOE Volatility Index (daily)

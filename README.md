@@ -65,7 +65,7 @@ Perfetta sia per chi inizia sia per trader esperti che vogliono automatizzare le
 
 | Modulo | Descrizione |
 |--------|-------------|
-| 📊 **Data Ingestion** | Scarica dati OHLCV da Yahoo Finance con cache intelligente |
+| 📊 **Data Ingestion** | Scarica dati OHLCV da Alpaca Markets (real-time, istituzionale) + FRED macroeconomici |
 | 🧮 **Feature Store** | Calcola 50+ indicatori tecnici (RSI, MACD, Bollinger, ATR...) |
 | 📈 **Signals** | 3 strategie: EMA Crossover, RSI Mean Reversion, Momentum |
 | 🤖 **ML Engine** | RandomForest + GradientBoosting con ottimizzazione Optuna |
@@ -261,10 +261,15 @@ MAX_PORTFOLIO_RISK=0.02
 # Database
 DATABASE_URL=postgresql://postgres:password@localhost:5432/trading
 
-# Broker (Alpaca)
+# Broker (Alpaca) - Dati di mercato real-time
+# Ottieni API key gratuita: https://alpaca.markets/
 ALPACA_API_KEY=your_api_key
 ALPACA_SECRET_KEY=your_secret_key
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
+
+# Dati Macroeconomici (FRED)
+# Ottieni API key gratuita: https://research.stlouisfed.org/useraccount/apikey
+FRED_API_KEY=your_fred_api_key
 
 # Notifiche Telegram
 TELEGRAM_BOT_TOKEN=your_bot_token
@@ -294,12 +299,47 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 
 ---
 
+## 📈 Fonti Dati
+
+La piattaforma utilizza fonti dati professionali e affidabili:
+
+### Alpaca Markets (Dati di Mercato)
+- **Tipo**: Dati OHLCV (Open, High, Low, Close, Volume) reali
+- **Qualità**: Dati istituzionali, clean e senza bias
+- **Prezzo**: Gratuito (paper trading), include 15 min di delay o real-time per alcuni exchange
+- **Vantaggi**: API stabile, limiti di rate generosi (200 req/min), paginazione automatica
+- **Copertura**: Azioni USA, ETF, alcune crypto
+
+### FRED - Federal Reserve Economic Data (Dati Macroeconomici)
+- **Tipo**: Indicatori economici (tassi di interesse, inflazione, disoccupazione, ecc.)
+- **Prezzo**: Gratuito con registrazione
+- **Indicatori principali**:
+  - `DFF`: Federal Funds Rate (tasso base della Fed)
+  - `DGS10`: Treasury 10 anni (benchmark dei tassi)
+  - `T10Y2Y`: Spread 10Y-2Y (indicatore di recessione quando negativo)
+  - `CPIAUCSL`: Indice dei prezzi al consumo (inflazione)
+  - `UNRATE`: Tasso di disoccupazione
+  - `VIXCLS`: Indice di volatilità VIX
+  - `DTWEXBGS`: Indice del dollaro USA
+
+### Perché Alpaca invece di Yahoo Finance?
+- ✅ Dati più affidabili e consistenti
+- ✅ API ufficiale con supporto (non scraping)
+- ✅ Split e dividendi gestiti automaticamente
+- ✅ Paginazione per dataset storici grandi
+- ✅ Rate limiting trasparente
+- ✅ No problemi di IP bloccati o CAPTCHA
+
+---
+
 ## 🏗️ Architettura
 
 ```
 ai-trading-platform/
 ├── src/ai_trading/
-│   ├── data_ingestion/    # Download dati mercato
+│   ├── data_ingestion/    # Download dati mercato (Alpaca) + macro (FRED)
+│   │   ├── main.py        # Ingestion dati prezzi da Alpaca
+│   │   └── fred_client.py # Ingestion dati macroeconomici
 │   ├── feature_store/     # Calcolo indicatori tecnici
 │   ├── signals/           # Generazione segnali trading
 │   ├── risk_engine/       # Gestione rischio
@@ -309,8 +349,10 @@ ai-trading-platform/
 │   │   └── dashboard.py   # Dashboard italiana
 │   ├── ml/                # Machine Learning
 │   ├── alerts/            # Sistema notifiche
-│   └── broker/            # Integrazione broker
-├── tests/                 # Test suite (27 test)
+│   └── broker/            # Integrazione broker (Alpaca)
+├── infra/db/
+│   └── init.sql           # Schema database (include tabella macro_data)
+├── tests/                 # Test suite
 ├── run_pipeline.py        # Pipeline base
 └── run_enhanced_pipeline.py  # Pipeline con ML
 ```
@@ -326,6 +368,29 @@ Ricevi alert in tempo reale quando:
 - 📊 Report giornaliero performance
 
 Canali supportati: **Telegram**, **Slack**, **Email**
+
+---
+
+## 🤖 GitHub Copilot Agent
+
+Il progetto include un agent personalizzato per GitHub Copilot che assiste nello sviluppo di strategie di trading.
+
+### Trading Strategy Developer Agent
+
+Situato in `.github/agents/trading-strategy.agent.md`, questo agent è specializzato in:
+
+- **Indicatori Tecnici**: EMA, RSI, ATR, momentum, volatility
+- **Generazione Segnali**: crossover, mean reversion, breakout
+- **Ensemble Multi-Strategia**: combinazione pesata di più strategie
+- **Ottimizzazione ML**: feature engineering e tuning parametri
+- **Risk Management**: position sizing, stop-loss, VaR
+
+**Prompt di esempio:**
+```
+@trading-strategy Crea una strategia MACD divergence
+@trading-strategy Ottimizza le soglie RSI mean reversion
+@trading-strategy Aggiungi dati macro FRED come filtro regime
+```
 
 ---
 

@@ -62,12 +62,12 @@ class TimeInForce(str, Enum):
 @dataclass
 class AlpacaConfig:
     """Alpaca API configuration."""
-    
+
     api_key: str = field(
         default_factory=lambda: os.getenv("ALPACA_API_KEY", "")
     )
     api_secret: str = field(
-        default_factory=lambda: os.getenv("ALPACA_API_SECRET", "")
+        default_factory=lambda: os.getenv("ALPACA_SECRET_KEY", "")
     )
     paper: bool = field(
         default_factory=lambda: os.getenv("ALPACA_PAPER", "true").lower() == "true"

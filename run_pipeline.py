@@ -15,7 +15,7 @@ Requires:
 
 from ai_trading.data_ingestion import ingest_all_tickers
 from ai_trading.feature_store import build_all_features
-from ai_trading.signals import generate_all_signals
+from ai_trading.signals import generate_signals_for_ticker
 from ai_trading.risk_engine import apply_risk_to_all_signals
 from ai_trading.execution import execute_all_orders, initialize_portfolio
 
@@ -45,7 +45,21 @@ print('✓ EMA, RSI, ATR, Volatility calcolati')
 
 # 4. Generazione segnali
 print('\n[4/5] Generazione segnali trading...')
-signals = generate_all_signals()
+signals = {}
+tickers = list(features.keys())
+for i, ticker in enumerate(tickers, 1):
+    print(f'   [{i}/{len(tickers)}] Analizzando {ticker}...', end=' ', flush=True)
+    try:
+        ticker_signals = generate_signals_for_ticker(ticker, save_to_db=True)
+        signals[ticker] = ticker_signals
+        if ticker_signals:
+            print(f'{ticker_signals[0].signal_type.value}')
+        else:
+            print('HOLD')
+    except Exception as e:
+        print(f'ERRORE: {e}')
+        signals[ticker] = []
+
 signal_count = sum(len(s) for s in signals.values())
 print(f'✓ Generati {signal_count} segnali')
 for ticker, sigs in signals.items():
